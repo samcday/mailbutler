@@ -4,10 +4,15 @@
   "version": "0.0.1",
   "dependencies": {
     "redis": "~0.8.6",
-    "hiredis": "~0.1.15",
-    "docker.io": "~0.6.3"
+    "hiredis": "~0.1.15"
+  },
+  "devDependencies": {
+    "mocha": "~1.13.0",
+    "docker.io": "~0.6.3",
+    "temp": "~0.6.0",
+    "q": "~0.9.7"
   },
   "scripts": {
-    "test": "node test/functional.js"
+    "test": "mocha"
   }
 }
