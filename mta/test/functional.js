@@ -19,7 +19,7 @@ function createProjectArchive() {
         var deferred = Q.defer();
         var archivePath = info.path;
         var projectRoot = path.resolve(__dirname, "..");
-        console.log(projectRoot);
+
         child_process.exec("tar -C " + projectRoot + " -czvf " + archivePath + " .", function(err) {
             if(err) {
                 return deferred.reject(err);
@@ -32,7 +32,9 @@ function createProjectArchive() {
 
 describe("Mailbutler MTA", function() {
     before(function(done) {
+        this.timeout(0);
         createProjectArchive().then(function(archivePath) {
+            console.log("Building Docker container for application...");
             docker.containers.create(archivePath, {}, function() {
                 console.log(arguments);
                 done();
