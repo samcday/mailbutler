@@ -13,7 +13,9 @@
     "q": "~0.9.7",
     "chai": "~1.8.1",
     "nodemailer": "~0.5.3",
-    "dockerode": "~0.1.5"
+    "dockerode": "~0.1.5",
+    "request": "~2.27.0",
+    "predis": "~1.0.1"
   },
   "scripts": {
     "test": "mocha"
