@@ -9,3 +9,4 @@ RUN curl http://nodejs.org/dist/v0.10.20/node-v0.10.20-linux-x64.tar.gz | tar -C
 RUN /opt/node/bin/npm -g install Haraka
 RUN mkdir /srv/mailbutler-mta
 ADD . /srv/mailbutler-mta
+ENTRYPOINT ["/opt/node/bin/node", "/opt/node/lib/node_modules/Haraka/bin/haraka", "-c", "/srv/mailbutler-mta"]

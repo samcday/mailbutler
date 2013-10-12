@@ -1,1 +1,13 @@
-{"name":"haraka_local","description":"An SMTP Server","version":"0.0.1","dependencies":{}}
+{
+  "name": "haraka_local",
+  "description": "An SMTP Server",
+  "version": "0.0.1",
+  "dependencies": {
+    "redis": "~0.8.6",
+    "hiredis": "~0.1.15",
+    "docker.io": "~0.6.3"
+  },
+  "scripts": {
+    "test": "node test/functional.js"
+  }
+}
