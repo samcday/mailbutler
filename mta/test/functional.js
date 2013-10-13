@@ -1,5 +1,13 @@
 "use strict";
 
+/*
+TODO:
+ * Mailcatcher is a bit slow to startup / shutdown. Seek alternatives.
+ * nodemailer transport might be retrying emails that we *want* to fail,
+   look into this.
+ * predis is dodgy and console.logs connection / error messages. Replace it.
+*/
+
 var _ = require("underscore"),
     dockerode = require("dockerode"),
     nodemailer = require("nodemailer"),
@@ -123,6 +131,8 @@ describe("Mailbutler MTA", function() {
     });
 
     after(function(done) {
+        this.timeout(0);
+        console.log("Shutting down all containers.");
         q.allSettled([
             redisContainer.stop(),
             applicationContainer.stop(),
@@ -147,7 +157,7 @@ describe("Mailbutler MTA", function() {
             });
     });
 
-    it("handles default routing correctly", function(done) {
+    /*it("handles default routing correctly", function(done) {
         q(redisClient.set("def:validdomain.com", "foo@bar.com")
             .then(function() {
                 console.log("1");
@@ -166,5 +176,5 @@ describe("Mailbutler MTA", function() {
                 console.log(mail);
             }))
             .nodeify(done);
-    });
+    });*/
 });

@@ -6,11 +6,16 @@ var _ = require("underscore"),
     net = require("net"),
     dockerode = require("dockerode"),
     temp = require("temp"),
-    streamSplitter = require("stream-splitter");
+    streamSplitter = require("stream-splitter"),
+    JSONStream = require("JSONStream");
 
 /*
 TODO:
  * provide some kind of shutdown hook to ensure containers die when we do.
+ * dockerode passes error info as second parameter when failures occur...
+   q.ninvoke drops these on the floor and we don't get them in our fail 
+   handlers, figure out how to fix this.
+ * decouple creation from startup in API.
  */
 
 // Make sure temporary files get cleaned up on exit.
@@ -51,7 +56,7 @@ function pipeOutputToLog(ctx, stream, transform) {
 
 // Promisifies the Container instances that dockerode gives us.
 function promisifyContainer(container) {
-    ["start", "stop", "inspect"].forEach(function(fn) {
+    ["start", "stop", "wait", "inspect"].forEach(function(fn) {
         container[fn] = q.nbind(container[fn], container);
     });
     return container;
@@ -111,8 +116,6 @@ function waitForPorts(ctx, ports) {
 function waitForPort(ctx, host, port) {
     var deferred = q.defer();
 
-    ctx.log("Waiting for port " + port + " to accept connections.");
-
     var checkConnection = function() {
         var socket = net.connect({port: port, host: host}, function() {
             deferred.resolve();
@@ -127,14 +130,15 @@ function waitForPort(ctx, host, port) {
     return deferred.promise;
 }
 
-function runContainer(ctx, image, ports, env, waitPorts) {
+function runContainer(ctx, image, ports, env, cmd, waitPorts) {
     env = _.map(env, function(v, k) {
         return k + "=" + v;
     });
     var opts = {
         Image: image,
         PortSpecs: ports,
-        Env: env
+        Env: env,
+        Cmd: cmd
     };
     ctx.log("Creating container...");
     return q.ninvoke(ctx.api.docker, "createContainer", opts).then(function(container) {
@@ -150,11 +154,14 @@ function runContainer(ctx, image, ports, env, waitPorts) {
         }
         var ports = _.values(wrappedContainer.forwardedPorts);
         return waitForPorts(ctx, ports).thenResolve(wrappedContainer);
+    }).then(function(wrappedContainer) {
+        ctx.log("Container is running.");
+        return wrappedContainer;
     });
 }
 
-// Pulls a container from Index, if it isn't present locally yet.
-function pullContainer(ctx, name) {
+// Pulls an image from Index, if it isn't present locally yet.
+function pullImage(ctx, name) {
     var img = ctx.docker.getImage(name);
     return q.ninvoke(img, "inspect").fail(function(error) {
         ctx.log("Pulling image down from Docker Index...");
@@ -162,7 +169,41 @@ function pullContainer(ctx, name) {
             fromImage: name
         }).then(function(stream) {
             var deferred = q.defer();
-            stream.on("end", function() {
+
+            // Only send an update for download progress at most every 1 
+            // second per image being downloaded.
+            var downloadNotifications = _.memoize(function(id) {
+                return _.throttle(function(progress) {
+                    ctx.log("Downloading " + id + ": ", progress);
+                }, 1000, {trailing: false});
+            });
+
+            var completed = {};
+
+            var jsonStream = stream.pipe(JSONStream.parse());
+            jsonStream.on("data", function(update) {
+                if(_.contains(["Downloading", "Download"], update.status)) {
+                    if("complete" === update.progress) {
+                        if(!completed[update.id]) {
+                            completed[update.id] = true;
+                            ctx.log("Download complete for " + update.id);
+                        }
+                    }
+                    else {
+                        downloadNotifications(update.id)(update.progress);
+                    }
+                }
+                else {
+                    if(update.progress) {
+                        ctx.log(update.status, update.progress, "for", update.id);
+                    }
+                    else {
+                        ctx.log(update.status);
+                    }
+                }
+            });
+
+            jsonStream.on("end", function() {
                 deferred.resolve();
             });
             return deferred.promise;
@@ -180,7 +221,13 @@ function wrapContainer(ctx, container) {
             id: container.id,
             stop: function() {
                 ctx.log("Stopping container...");
-                return container.stop();
+                return container.stop().then(function() {
+                    ctx.log("Waiting for container to exit...");
+                    return container.wait();
+                }).then(function(result) {
+                    ctx.log("Container has stopped.");
+                    return result ? result.StatusCode : null;
+                });
             }
         };
     });
@@ -198,7 +245,7 @@ function makeContext(api, prefix) {
     };
 }
 
-var baseOptions = ["ports", "env", "waitForPorts"];
+var baseOptions = ["ports", "env", "waitForPorts", "cmd"];
 
 function builder(options, doneFn) {
     var o = {};
@@ -225,8 +272,8 @@ function builder(options, doneFn) {
 function fromIndex(api, imageName) {
     return builder(baseOptions, function(opts) {
         var ctx = makeContext(api, imageName);
-        return pullContainer(ctx, imageName).then(function() {
-            return runContainer(ctx, imageName, opts.ports, opts.env, opts.waitForPorts);
+        return pullImage(ctx, imageName).then(function() {
+            return runContainer(ctx, imageName, opts.ports, opts.env, opts.cmd, opts.waitForPorts);
         });
     });
 }
@@ -238,7 +285,7 @@ function fromProjectRoot(api, projectRoot, tag) {
         return createProjectArchive(ctx, projectRoot).then(function(archivePath) {
             return createProjectImage(ctx, archivePath, tag);
         }).then(function() {
-            return runContainer(ctx, tag, opts.ports, opts.env, opts.waitForPorts);
+            return runContainer(ctx, tag, opts.ports, opts.env, opts.cmd, opts.waitForPorts);
         });
     });
 }
