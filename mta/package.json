@@ -15,7 +15,9 @@
     "nodemailer": "~0.5.3",
     "dockerode": "~0.1.5",
     "request": "~2.27.0",
-    "predis": "~1.0.1"
+    "predis": "~1.0.1",
+    "underscore": "~1.5.2",
+    "stream-splitter": "~0.3.0"
   },
   "scripts": {
     "test": "mocha"
