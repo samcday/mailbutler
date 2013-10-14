@@ -56,7 +56,7 @@ function pipeOutputToLog(ctx, stream, transform) {
 
 // Promisifies the Container instances that dockerode gives us.
 function promisifyContainer(container) {
-    ["start", "stop", "wait", "inspect"].forEach(function(fn) {
+    ["start", "stop", "wait", "inspect", "kill"].forEach(function(fn) {
         container[fn] = q.nbind(container[fn], container);
     });
     return container;
@@ -219,7 +219,12 @@ function wrapContainer(ctx, container) {
             ip: data.NetworkSettings.IPAddress,
             gateway: data.NetworkSettings.Gateway,
             id: container.id,
-            stop: function() {
+            stop: function(kill) {                
+                if(kill) {
+                    ctx.log("Killing container.");
+                    return container.kill();
+                }
+
                 ctx.log("Stopping container...");
                 return container.stop().then(function() {
                     ctx.log("Waiting for container to exit...");

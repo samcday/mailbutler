@@ -25,7 +25,7 @@ request = request.defaults({json: true});
 var containers = dockerContainers.connectSocket("/var/run/docker.sock");
 
 var redisImageId = "johncosta/redis",
-    mailcatcherImageId = "fgrehm/ventriloquist-mailcatcher";
+    mailcatcherImageId = "samcday/mailcatcher";
 
 var applicationContainer = null,
     redisContainer = null,
@@ -68,12 +68,12 @@ function runMtaContainer() {
 
 function runMailcatcherContainer() {
     return containers.fromIndex(mailcatcherImageId)
-        .ports(["1025", "1080"])
+        .ports(["25", "80"])
         .waitForPorts(true)
         .run().then(function(container) {
             mailcatcherContainer = container;
             mailcatcherUrl = "http://" + container.gateway + ":" +
-                             container.forwardedPorts["1080"];
+                             container.forwardedPorts["80"];
         });
 }
 
@@ -136,7 +136,7 @@ describe("Mailbutler MTA", function() {
         q.allSettled([
             redisContainer.stop(),
             applicationContainer.stop(),
-            mailcatcherContainer.stop()
+            mailcatcherContainer.stop(true)
         ]).nodeify(done);
     });
 
