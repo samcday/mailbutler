@@ -17,7 +17,8 @@
     "request": "~2.27.0",
     "predis": "~1.0.1",
     "underscore": "~1.5.2",
-    "stream-splitter": "~0.3.0"
+    "stream-splitter": "~0.3.0",
+    "JSONStream": "~0.7.1"
   },
   "scripts": {
     "test": "mocha"

@@ -63,6 +63,11 @@ function runMtaContainer() {
         .waitForPorts(true)
         .run().then(function(container) {
             applicationContainer = container;
+
+            transport = nodemailer.createTransport("SMTP", {
+                host: applicationContainer.ip,
+                port: applicationContainer.forwardedPorts["25"]
+            });
         });
 }
 
@@ -100,7 +105,6 @@ function waitForEmailFrom(rcpt) {
     function checkMail() {
         request.get(mailcatcherUrl + "/messages", function(err, data) {
             if(err) {
-                console.log("Nah it's fucked.");
                 return deferred.reject(err);
             }
 
@@ -120,13 +124,7 @@ describe("Mailbutler MTA", function() {
             // MTA needs Redis to come up, so we can't parallelize it as much.
             runRedisContainer().then(runMtaContainer),
             runMailcatcherContainer()
-        ]).then(function() {
-            console.log("Hmmm.");
-            transport = nodemailer.createTransport("SMTP", {
-                host: applicationContainer.ip,
-                port: 25
-            });
-        })
+        ])
         .nodeify(done);
     });
 
@@ -148,6 +146,7 @@ describe("Mailbutler MTA", function() {
     });
 
     it("should not accept emails for unhandled domains", function(done) {
+        this.timeout(10000);
         sendTestEmail("orig@rcpt.com", "test@noexists.com")
             .then(function() {
                 done(new Error("Should have been an error delivering mail."));
