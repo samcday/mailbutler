@@ -214,11 +214,15 @@ function pullImage(ctx, name) {
 // Wraps a container up in the return object we give callers.
 function wrapContainer(ctx, container) {
     return container.inspect().then(function(data) {
+        var forwardedPorts = data.NetworkSettings.PortMapping.Tcp;
         return {
-            forwardedPorts: data.NetworkSettings.PortMapping.Tcp,
+            forwardedPorts: forwardedPorts,
             ip: data.NetworkSettings.IPAddress,
             gateway: data.NetworkSettings.Gateway,
             id: container.id,
+            waitForPorts: function() {
+                return waitForPorts(ctx, _.values(forwardedPorts));
+            },
             stop: function(kill) {                
                 if(kill) {
                     ctx.log("Killing container.");

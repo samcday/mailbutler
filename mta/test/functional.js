@@ -40,7 +40,6 @@ var transport = null,
 function runRedisContainer() {
     return containers.fromIndex(redisImageId)
         .ports(["6379"])
-        .waitForPorts(true)
         .run().then(function(container) {
             redisContainer = container;
             redisUrl = "redis://" + container.ip + ":6379";
@@ -60,7 +59,6 @@ function runMtaContainer() {
     return containers.fromProjectRoot(projectRoot, "mailbutler/mta")
         .ports(ports)
         .env(env)
-        .waitForPorts(true)
         .run().then(function(container) {
             applicationContainer = container;
 
@@ -74,7 +72,6 @@ function runMtaContainer() {
 function runMailcatcherContainer() {
     return containers.fromIndex(mailcatcherImageId)
         .ports(["25", "80"])
-        .waitForPorts(true)
         .run().then(function(container) {
             mailcatcherContainer = container;
             mailcatcherUrl = "http://" + container.gateway + ":" +
@@ -120,12 +117,17 @@ describe("Mailbutler MTA", function() {
     before(function(done) {
         this.timeout(0);
 
-        q.all([
-            // MTA needs Redis to come up, so we can't parallelize it as much.
-            runRedisContainer().then(runMtaContainer),
-            runMailcatcherContainer()
-        ])
-        .nodeify(done);
+        runRedisContainer()
+            .then(runMailcatcherContainer)
+            .then(runMtaContainer)
+            .then(function() {
+                return q.all([
+                    mailcatcherContainer.waitForPorts(),
+                    redisContainer.waitForPorts(),
+                    applicationContainer.waitForPorts()
+                ]);
+            })
+            .nodeify(done);
     });
 
     after(function(done) {
