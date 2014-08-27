@@ -3,6 +3,7 @@
   "description": "An SMTP Server",
   "version": "0.0.1",
   "dependencies": {
-    "Haraka": "^2.5.0"
+    "Haraka": "^2.5.0",
+    "redis": "^0.12.1"
   }
 }
