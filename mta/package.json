@@ -4,6 +4,7 @@
   "version": "0.0.1",
   "dependencies": {
     "Haraka": "^2.5.0",
-    "redis": "^0.12.1"
+    "redis": "^0.12.1",
+    "srs.js": "^0.1.0"
   }
 }
